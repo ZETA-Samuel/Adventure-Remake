@@ -1,6 +1,9 @@
 # Adventure-Remake
 A remake of my previous Adventure Runner.
 
+# I am still working on the game, you can try it at:
+https://zeta-samuel.github.io/Adventure-Remake/
+
 # HOW TO PLAY
 - 'A' and 'D' to move around
 - 'W' and 'SPACE' to jump
