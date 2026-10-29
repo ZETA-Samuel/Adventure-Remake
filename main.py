@@ -1,16 +1,13 @@
-import pygame
-import sys
-from player import *
-from pathlib import Path
+import pygame, asyncio
 
 # initalization
 pygame.init()
 clock = pygame.time.Clock()
 
-screen = pygame.display.set_mode() # display surface
-width,height = pygame.Surface.get_width(screen),pygame.Surface.get_height(screen)
+screen = pygame.display.set_mode((1280,800)) # display surface
+width,height = screen.get_size()
 pygame.display.set_caption("Adventure")
-show_debug = 1
+
  # level info
 TILE_SIZE = 32
 
@@ -61,7 +58,7 @@ level_1 = [
   ".................###....................",
   "......................#####.............",
   "...........#####........................",
-  "p.......................................",
+  "P.......................................",
   "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
 
 ]
@@ -116,6 +113,8 @@ class Player(pygame.sprite.Sprite):
         self.dash_cooldown = 0.8
         self.dash_cooldown_timer = 0
         self.dash_direction = 1
+        self.spawn_pos = pygame.Vector2(pos)
+
 
 
         self.idle_image = self.get_frame(0,0)
@@ -174,6 +173,50 @@ class Player(pygame.sprite.Sprite):
 
         frame = animation[self.frame_index]
         self.image = pygame.transform.flip(frame,self.facing_left,False)
+
+
+    def restore_hitbox(self,walls):
+        above = self.rect.copy()
+        above.height = self.normal_height
+        above.bottom = self.rect.bottom
+
+        if not any(above.colliderect(wall) for wall in walls):
+            self.rect = above
+            return True
+
+        below = self.rect.copy()
+        below.height = self.normal_height
+        below.top = self.rect.top
+
+        if not any(below.colliderect(wall) for wall in walls):
+            self.rect = below
+            return True
+
+        self.dying = True
+        self.current_animation = None
+        return False
+
+    def respawn(self):
+        self.rect.midbottom=self.spawn_pos
+        self.velocity_y = 0
+        self.direction.update(0,0)
+        self.moving = False
+        self.on_ground = False
+
+        self.dying = False
+        self.dead = False
+
+        self.dash_timer = 0
+        self.dash_cooldown_timer = 0
+
+        self.rect.height = self.normal_height
+
+        self.current_animation = None
+        self.frame_index = 0
+        self.animation_timer = 0
+        self.image = self.idle_image
+
+        self.draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
 
 
     def input(self):
@@ -243,36 +286,34 @@ class Player(pygame.sprite.Sprite):
 
     def update(self,dt,walls):
         if self.dead:
+            self.respawn()
             return
 
         if self.dying:
-           self.animate(dt, self.death_animation, loop=False,speed=8)
-        
-        if self.frame_index >= len(self.death_animation) -1:
-            self.dead = True
+            self.animate(dt, self.death_animation, loop=False,speed=8)
+            self.draw_rect = self.image.get_rect(midbottom = self.rect.midbottom)
 
-            self.draw_rect.midbottom = self.image.get_rect(midbottom=self.rect.midbottom)
+            if self.frame_index >= len(self.death_animation) -1:
+                self.dead = True
+
             return
 
+        was_dashing = self.dash_timer > 0
+
         self.dash_timer = max(0, self.dash_timer - dt)
-        self.dash_cooldown_timer = max(0,self.dash_cooldown_timer - dt)
 
-        if self.dash_timer == 0 and self.rect.height != self.normal_height:
-            bottom = self.rect.bottom
-            self.rect.height = self.normal_height
-            self.rect.bottom = bottom
+        if was_dashing and self.dash_timer == 0:
+            if not self.restore_hitbox(walls):
+                self.dying = True
+                self.current_animation = None
+                return
 
-        
-        self.input()
+        self.dash_cooldown_timer = max(0, self.dash_cooldown_timer - dt)
+
+
+        if self.dash_timer <= 0:
+            self.input()
         self.move(dt, walls)
-
-        if self.dash_timer > 0:
-            self.dash_timer = max(0, self.dash_timer - dt)
-
-            if self.dash_timer == 0:
-                bottom = self.rect.bottom
-                self.rect.height = self.normal_height
-                self.rect.bottom = bottom
 
         if self.dash_timer > 0:
             self.animate(dt, self.dash_animation,loop=True,speed=20)
@@ -306,58 +347,62 @@ player = Player(spawn)
 player.rect.midbottom = spawn
 all_sprites = pygame.sprite.Group(player)
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
 
-        if event.type == pygame.KEYDOWN:
-            if not player.dying and not player.dead:
+async def main():
+    show_debug = 1
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-                if event.key in (pygame.K_w, pygame.K_SPACE):
-                    player.jump()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_o:
+                    running = False
 
-                if event.key == pygame.K_LSHIFT:
-                    if player.dash_cooldown_timer <= 0:
-                        player.dash_direction = (-1 if player.facing_left else 1)
-                        player.dash_timer = player.dash_duration
-                        player.dash_cooldown_timer = player.dash_cooldown
+                if not player.dying and not player.dead:
 
-                        bottom = player.rect.bottom
-                        player.rect.height = player.dash_height
-                        player.rect.bottom = bottom
+                    if event.key in (pygame.K_w, pygame.K_SPACE):
+                        player.jump()
 
-                if event.key == pygame.K_p:
-                    show_debug *= -1
+                    if event.key == pygame.K_LSHIFT:
+                        if player.dash_cooldown_timer <= 0:
+                            player.dash_direction = (-1 if player.facing_left else 1)
+                            player.dash_timer = player.dash_duration
+                            player.dash_cooldown_timer = player.dash_cooldown
 
-                if event.key == pygame.K_y:
-                    player.dying = True
-                    player.current_animation = None
+                            bottom = player.rect.bottom
+                            player.rect.height = player.dash_height
+                            player.rect.bottom = bottom
+                    
+                    if event.key == pygame.K_p:
+                        show_debug *= -1
 
-    dt = clock.tick(60) / 1000
-    screen.fill("black")
+                    if event.key == pygame.K_y:
+                        player.dying = True
+                        player.current_animation = None
 
-    all_sprites.update(dt, walls)
+        dt = clock.tick(60) / 1000
+        screen.fill("black")
 
-    for row_index,row in enumerate(level_1):
-        for col_index, symbol in enumerate(row):
-            x = col_index * TILE_SIZE
-            y = row_index * TILE_SIZE
+        all_sprites.update(dt, walls)
 
-            if symbol in tile_images:
-                screen.blit(tile_images[symbol], (x,y))
+        for row_index,row in enumerate(level_1):
+            for col_index, symbol in enumerate(row):
+                x = col_index * TILE_SIZE
+                y = row_index * TILE_SIZE
 
-    for sprite in all_sprites:
-        screen.blit(sprite.image, sprite.draw_rect)
-    
+                if symbol in tile_images:
+                    screen.blit(tile_images[symbol], (x,y))
 
-    if show_debug == 1:
-        pygame.draw.rect(screen, "red", player.rect,2)
+        for sprite in all_sprites:
+            screen.blit(sprite.image, sprite.draw_rect)
+        
 
-    pygame.display.update()
+        if show_debug == 1:
+            pygame.draw.rect(screen, "red", player.rect,2)
 
+        pygame.display.update()
 
-
-pygame.quit()
-sys.exit()
+        await asyncio.sleep(0)
+asyncio.run(main())
