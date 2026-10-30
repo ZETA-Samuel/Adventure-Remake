@@ -1,4 +1,5 @@
 import pygame, asyncio
+from functools import lru_cache
 
 # initalization
 pygame.init()
@@ -7,6 +8,11 @@ clock = pygame.time.Clock()
 screen = pygame.display.set_mode((1280,800)) # display surface
 width, height = screen.get_size()
 pygame.display.set_caption("Adventure")
+
+
+@lru_cache(maxsize=128)
+def render_text(font, text, text_col):
+    return font.render(text, True, text_col)
 
 # level info
 TILE_SIZE = 32
