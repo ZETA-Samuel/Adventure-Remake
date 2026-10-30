@@ -5,10 +5,10 @@ pygame.init()
 clock = pygame.time.Clock()
 
 screen = pygame.display.set_mode((1280,800)) # display surface
-width,height = screen.get_size()
+width, height = screen.get_size()
 pygame.display.set_caption("Adventure")
 
- # level info
+# level info
 TILE_SIZE = 32
 
 # loading texture
@@ -22,49 +22,149 @@ def load_tile_image(path, color):
         return image
 
 tile_images = {
-    "G": load_tile_image("tiles/grass.png",(70,180,70)),
-    "#": load_tile_image("tiles/stone.png", (120,120,130)),
+    "G": load_tile_image("Game/tiles/grass.png",(70,180,70)),
+    "#": load_tile_image("Game/tiles/stone.png", (120,120,130)),
     #"C": load_tile_image("tiles/crate.png", (150,95,45)),
 }
+
+key_image = pygame.image.load("Game/items/key.png").convert_alpha()
+door_image = pygame.image.load("Game/items/door.png").convert_alpha()
+door_image_open = pygame.image.load("Game/items/door_open.png").convert_alpha()
+turret_image = pygame.image.load("Game/items/turret.png").convert_alpha()
+
+key_image = pygame.transform.scale(key_image, (24, 24))
+door_image = pygame.transform.scale(door_image, (32, 48))
+door_image_open = pygame.transform.scale(door_image, (32, 48))
+turret_image = pygame.transform.scale(turret_image, (32, 48))
+
 
 # . = empty space
 # G = grass
 # # = stone
-# C = crate
 # P = player spawn
-# E = exit
+# D = door
+# K = key
+# S = spikes
+# T = turret
+# B = bullet
+levels = [
+        
+    [
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "..............................D.........",
+    "............................#####.......",
+    "...................####.................",
+    "........#######.........................",
+    "........................................",
+    "..P................................K....",
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
+    [
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    ".....................K..................",
+    "........................................",
+    "..P....SS.......S............SS........D",
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
+    [
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "T......................................T",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "................#.......................",
+    ".......GG.......#.......................",
+    "................#.......................",
+    "..............GG#.......................",
+    "..p.............#...K..............D....",
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
+    [
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "................................K.......",
+    "T..............................##.......",
+    "........................................",
+    "..........................##............",
+    "........................................",
+    "....................##..................",
+    "........................................",
+    ".............##.........................",
+    "....P..........SSSSSSSSSSSSSSSSSSS...D..",
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+    ],
 
-level_1 = [
-  "........................................",
-  ".............................######.....",
-  "........................................",
-  ".................#..#...................",
-  "........................................",
-  ".....####....................#.#.#......",
-  "........................................",
-  "................####..................#.",
-  "....#.##.............................#..",
-  "..........#.............................",
-  "...............................#.#.#....",
-  "..............#.#.......................",
-  "........................................",
-  ".....##..................#..#...........",
-  "...............#........................",
-  "........................................",
-  "......................#...#.............",
-  "................#.......................",
-  "........................................",
-  "...####......#..................#######.",
-  ".................###....................",
-  "......................#####.............",
-  "...........#####........................",
-  "P.......................................",
-  "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
 
 ]
 def load_level(level_data):
     walls = []
-    spawn = (100,100)
+    spikes = []
+    turrets = []
+    spawn = (100, 100)
 
     for row_index, row in enumerate(level_data):
         for col_index,symbol in enumerate(row):
@@ -79,17 +179,69 @@ def load_level(level_data):
             elif symbol == "P":
                 spawn = (
                     x + TILE_SIZE // 2,
-                    y + TILE_SIZE ,
+                    y + TILE_SIZE,
                 )
 
-    return walls, spawn
+            elif symbol == "K":
+                key = pygame.Rect(x+6, y+6, 20, 20)
+                
+            elif symbol == "D":
+                door = pygame.Rect(x+4, y, 24, TILE_SIZE)
+
+            elif symbol == "S":
+                spikes.append(pygame.Rect(x, y, TILE_SIZE, TILE_SIZE))
+
+            elif symbol == "T":
+                turrets.append(pygame.Rect(x, y, TILE_SIZE, TILE_SIZE))
+
+    walls.append(pygame.Rect(-TILE_SIZE, 0, TILE_SIZE, height))
+    walls.append(pygame.Rect(width, 0, TILE_SIZE, height))
+    walls.append(pygame.Rect(0, -TILE_SIZE, width, TILE_SIZE))
+    walls.append(pygame.Rect(0, height, width, TILE_SIZE))
+
+    return walls, spawn, key, door, spikes, turrets
+
+def show_instructions(screen):
+    screen.fill((25,30,45))
+
+    title_font = pygame.font.Font(None,75)
+    font = pygame.font.Font(None,36)
+    small_font = pygame.font.Font(None, 28)
+
+    title = title_font.render("HOW TO PLAY", True, (255,20,80))
+    screen.blit(title, title.get_rect(center=(640,120)))
+
+
+    instructions = [
+        "A / D or LEFT / RIGHT  -  Move [P - Hitbox / Y - Respawn]",
+        "SPACE  -  Jump",
+        "SHIFT  -  Dash",
+        "Collect the KEY to unlock the DOOR.",
+        "Avoid spikes, turret & bullets!",
+        "Reach the door to complete the level.",
+
+    ]
+
+    y = 230
+
+    for instruction in instructions:
+        text = font.render(instruction, True, (230,230,230))
+        screen.blit(text, text.get_rect(center=(640,y)))
+        y += 55
+
+    start_text = small_font.render(
+        "Press ENTER to start", True, (100,255,150)
+    )
+
+    screen.blit(start_text, start_text.get_rect(center=(640,650)))
+
 
 # player class
 class Player(pygame.sprite.Sprite):
     def __init__(self,pos):
         super().__init__()
 
-        self.sprite_sheet = pygame.image.load('animation/hero.png').convert_alpha()
+        self.sprite_sheet = pygame.image.load('Game/animation/hero.png').convert_alpha()
         self.speed = 200
         self.velocity_y = 0
         self.gravity = 1200
@@ -133,6 +285,8 @@ class Player(pygame.sprite.Sprite):
         self.image = self.idle_image
         self.rect = pygame.Rect(0,0,32,54)
         self.rect.midbottom = pos
+        self.normal_width = self.rect.width
+        self.normal_height = self.rect.height
 
         self.draw_rect = self.image.get_rect()
         self.draw_rect.midbottom = self.rect.midbottom
@@ -197,9 +351,15 @@ class Player(pygame.sprite.Sprite):
         return False
 
     def respawn(self):
+        self.rect.width = self.normal_width
+        self.rect.height = self.normal_height
+
         self.rect.midbottom=self.spawn_pos
+
         self.velocity_y = 0
-        self.direction.update(0,0)
+        self.velocity_x = 0
+
+        # self.direction.update(0,0)
         self.moving = False
         self.on_ground = False
 
@@ -207,14 +367,14 @@ class Player(pygame.sprite.Sprite):
         self.dead = False
 
         self.dash_timer = 0
-        self.dash_cooldown_timer = 0
+        # self.dash_cooldown_timer = 0
 
-        self.rect.height = self.normal_height
+        # self.rect.height = self.normal_height
 
-        self.current_animation = None
-        self.frame_index = 0
-        self.animation_timer = 0
-        self.image = self.idle_image
+        # self.current_animation = None
+        # self.frame_index = 0
+        # self.animation_timer = 0
+        # self.image = self.idle_image
 
         self.draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
 
@@ -311,8 +471,7 @@ class Player(pygame.sprite.Sprite):
         self.dash_cooldown_timer = max(0, self.dash_cooldown_timer - dt)
 
 
-        if self.dash_timer <= 0:
-            self.input()
+        self.input()
         self.move(dt, walls)
 
         if self.dash_timer > 0:
@@ -332,36 +491,62 @@ class Player(pygame.sprite.Sprite):
 
         self.draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
 
-
-        # if self.moving:
-        #     self.animate(dt,self.animations)
-
-        # else:
-        #     self.frame_index = 0
-        #     self.image = pygame.transform.flip(self.idle_image,self.facing_left,False)
-
-
-walls, spawn = load_level(level_1)
-
-player = Player(spawn)
-player.rect.midbottom = spawn
-all_sprites = pygame.sprite.Group(player)
-
-
 async def main():
     show_debug = 1
+    font = pygame.font.Font(None, 64)
+    has_key = False
+    game_won = False
     running = True
+    current_level = 0
+    bullets = []
+    bullet_speed = 350
+    shoot_timer = 0
+    shoot_delay = 1.5 #seconds
+    game_state = "instructions"
+
+    walls,spawn,key,door,spikes,turrets = load_level(levels[current_level])
+
+    player = Player(spawn)
+    all_sprites = pygame.sprite.Group(player)
+
+    def next_level():
+        nonlocal current_level
+        nonlocal walls,spawn,key,door,spikes,turrets
+        nonlocal has_key,game_won
+
+        current_level += 1
+
+        if current_level >= len(levels):
+            game_won = True
+            return
+
+        walls,spawn,key,door,spikes,turrets = load_level(
+            levels[current_level]
+        )
+
+        player.spawn_pos = spawn
+        player.respawn()
+
+        has_key = False
+        bullets.clear()
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
             if event.type == pygame.KEYDOWN:
+                if game_state == "instructions":
+                    if event.key == pygame.K_RETURN:
+                        game_state = "playing"
+
                 if event.key == pygame.K_o:
                     running = False
 
-                if not player.dying and not player.dead:
+                if not player.dying and not player.dead and not game_won:
 
+                    
+                    
                     if event.key in (pygame.K_w, pygame.K_SPACE):
                         player.jump()
 
@@ -385,22 +570,149 @@ async def main():
         dt = clock.tick(60) / 1000
         screen.fill("black")
 
-        all_sprites.update(dt, walls)
+        if game_state == "instructions":
+            show_instructions(screen)
 
-        for row_index,row in enumerate(level_1):
-            for col_index, symbol in enumerate(row):
-                x = col_index * TILE_SIZE
-                y = row_index * TILE_SIZE
+        elif game_state == "playing":    
+            collision_walls = walls.copy()
 
-                if symbol in tile_images:
-                    screen.blit(tile_images[symbol], (x,y))
+            if not has_key:
+                collision_walls.append(door)
 
-        for sprite in all_sprites:
-            screen.blit(sprite.image, sprite.draw_rect)
-        
+            if not game_won:
+                all_sprites.update(dt, collision_walls)
 
-        if show_debug == 1:
-            pygame.draw.rect(screen, "red", player.rect,2)
+            if not player.dying and not player.dead:
+                for spike in spikes:
+                    if player.rect.colliderect(spike):
+                        player.dying = True
+                        player.current_animation = None
+                        break
+
+            # Key
+            if not has_key:
+                if player.rect.colliderect(key):
+                    has_key = True
+                    print("Key Collected!")
+
+            # Door
+            if not game_won:
+                if player.rect.colliderect(door):
+                    if has_key:
+                        if player.rect.colliderect(door) and has_key:
+                            next_level()
+            # Draw tile
+            if not game_won:
+                for row_index,row in enumerate(levels[current_level]):
+                    for col_index, symbol in enumerate(row):
+                        x = col_index * TILE_SIZE
+                        y = row_index * TILE_SIZE
+
+                        if symbol in tile_images:
+                            screen.blit(tile_images[symbol], (x,y))
+
+            if game_state=="instructions":
+                show_instructions(screen)
+
+            elif game_state == "playing":
+                pass
+
+            # Draw key
+            if not has_key:
+                screen.blit(
+                    key_image,
+                    key_image.get_rect(center=key.center)
+                )
+
+            # Draw door 
+            if has_key:
+                screen.blit(
+                    door_image_open,
+                    door_image_open.get_rect(midbottom=door.midbottom)
+                )
+            else:
+                screen.blit(
+                    door_image,
+                    door_image.get_rect(midbottom=door.midbottom)
+                )
+
+            # Draw spikes
+            for spike in spikes:
+                pygame.draw.rect(screen, "red", spike)
+
+            # Draw turret
+            for turret in turrets:
+                screen.blit(
+                    turret_image, 
+                    turret_image.get_rect(midbottom=turret.midbottom)
+                )
+
+            # Draw player
+            for sprite in all_sprites:
+                screen.blit(sprite.image, sprite.draw_rect)
+            
+            #  Draw Hit_box
+            if show_debug == -1:
+                pygame.draw.rect(screen, "red", player.rect,2)
+
+            # Draw bullet
+            shoot_timer += dt
+
+            if shoot_timer >= shoot_delay:
+                shoot_timer = 0
+
+                for turret in turrets:
+                    direction = pygame.Vector2(player.rect.center) - pygame.Vector2(turret.center)
+
+                    if direction.length() > 0:
+                        direction = direction.normalize()
+
+                        bullets.append({
+                            "pos": pygame.Vector2(turret.center),
+                            "direction": direction
+                        })
+
+            for bullet in bullets[:]:
+                bullet["pos"] += bullet["direction"] * bullet_speed * dt
+
+                bullet_rect = pygame.Rect(
+                    bullet["pos"].x - 6, 
+                    bullet["pos"].y - 6,
+                    12,
+                    12
+                )
+
+                if any(bullet_rect.colliderect(wall) for wall in walls):
+                    bullets.remove(bullet)
+                    continue
+
+                if bullet_rect.colliderect(player.rect):
+                    bullets.remove(bullet)
+
+                    if not player.dying and not player.dead:
+                        player.dying = True
+                        player.current_animation = None
+
+                    continue
+
+                if not screen.get_rect().colliderect(bullet_rect):
+                    bullets.remove(bullet)
+
+            for bullet in bullets[:]:
+                pygame.draw.circle(
+                    screen,
+                    "yellow",
+                    (int(bullet["pos"].x), int(bullet["pos"].y)),
+                    6
+                )
+
+            # Display text
+            if game_won:
+                message = font.render("Level Complete!!!", True, "white")
+                screen.blit(
+                    message,
+                    message.get_rect(center = (width // 2, height // 2))
+                )
 
         pygame.display.update()
 
