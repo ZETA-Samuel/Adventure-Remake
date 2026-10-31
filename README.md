@@ -1,8 +1,11 @@
 # Adventure-Remake
 A remake of my previous Adventure Runner.
 
-# I am still working on the game, you can try it at:
+# You can try it at:
 https://zeta-samuel.github.io/Adventure-Remake/
+
+# Objective
+Reach the door after collecting the coin without dying.
 
 # HOW TO PLAY
 - 'A' and 'D' to move around
