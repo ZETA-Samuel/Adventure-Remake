@@ -1,18 +1,12 @@
 import pygame, asyncio
-from functools import lru_cache
 
 # initalization
 pygame.init()
 clock = pygame.time.Clock()
 
-screen = pygame.display.set_mode((1280,800)) # display surface
+screen = pygame.display.set_mode((1280,832)) # display surface
 width, height = screen.get_size()
 pygame.display.set_caption("Adventure")
-
-
-@lru_cache(maxsize=128)
-def render_text(font, text, text_col):
-    return font.render(text, True, text_col)
 
 # level info
 TILE_SIZE = 32
@@ -28,20 +22,25 @@ def load_tile_image(path, color):
         return image
 
 tile_images = {
-    "G": load_tile_image("Game/tiles/grass.png",(70,180,70)),
-    "#": load_tile_image("Game/tiles/stone.png", (120,120,130)),
+    "G": load_tile_image("tiles/grass.png",(70,180,70)),
+    "#": load_tile_image("tiles/stone.png", (120,120,130)),
     #"C": load_tile_image("tiles/crate.png", (150,95,45)),
 }
 
-key_image = pygame.image.load("Game/items/key.png").convert_alpha()
-door_image = pygame.image.load("Game/items/door.png").convert_alpha()
-door_image_open = pygame.image.load("Game/items/door_open.png").convert_alpha()
-turret_image = pygame.image.load("Game/items/turret.png").convert_alpha()
+key_image = pygame.image.load("items/key.png").convert_alpha()
+door_image = pygame.image.load("items/door.png").convert_alpha()
+door_image_open = pygame.image.load("items/door_open.png").convert_alpha()
+turret_image = pygame.image.load("items/turret.png").convert_alpha()
+spikes_image = pygame.image.load("items/spikes.png").convert_alpha()
+blast_image = pygame.image.load("items/explosion.png").convert_alpha()
 
-key_image = pygame.transform.scale(key_image, (24, 24))
+key_image = pygame.transform.scale(key_image, (36, 18))
 door_image = pygame.transform.scale(door_image, (32, 48))
-door_image_open = pygame.transform.scale(door_image, (32, 48))
+door_image_open = pygame.transform.scale(door_image_open, (32, 48))
 turret_image = pygame.transform.scale(turret_image, (32, 48))
+spikes_image = pygame.transform.scale(spikes_image,(32,24))
+blast_image = pygame.transform.scale(blast_image, (80, 80))
+
 
 
 # . = empty space
@@ -133,7 +132,7 @@ levels = [
     ".......GG.......#.......................",
     "................#.......................",
     "..............GG#.......................",
-    "..p.............#...K..............D....",
+    "..P.............#...K..............D....",
     "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
     ],
     [
@@ -153,13 +152,13 @@ levels = [
     "........................................",
     "........................................",
     "................................K.......",
-    "T..............................##.......",
+    "T............................. ###......",
     "........................................",
-    "..........................##............",
+    ".........................###............",
     "........................................",
-    "....................##..................",
+    "...................###..................",
     "........................................",
-    ".............##.........................",
+    ".............###........................",
     "....P..........SSSSSSSSSSSSSSSSSSS...D..",
     "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
     ],
@@ -214,7 +213,7 @@ def show_instructions(screen):
     font = pygame.font.Font(None,36)
     small_font = pygame.font.Font(None, 28)
 
-    title = title_font.render("HOW TO PLAY", True, (255,20,80))
+    title = title_font.render("HOW TO PLAY", True, (255,255,255))
     screen.blit(title, title.get_rect(center=(640,120)))
 
 
@@ -247,7 +246,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self,pos):
         super().__init__()
 
-        self.sprite_sheet = pygame.image.load('Game/animation/hero.png').convert_alpha()
+        self.sprite_sheet = pygame.image.load('animation/hero.png').convert_alpha()
         self.speed = 200
         self.velocity_y = 0
         self.gravity = 1200
@@ -272,6 +271,10 @@ class Player(pygame.sprite.Sprite):
         self.dash_cooldown_timer = 0
         self.dash_direction = 1
         self.spawn_pos = pygame.Vector2(pos)
+        self.blast_timer = 0
+        self.blast_duration = 0.35
+        self.show_blast = False
+        self.blast_position = pygame.Vector2()
 
 
 
@@ -451,6 +454,17 @@ class Player(pygame.sprite.Sprite):
             self.on_ground = False
 
     def update(self,dt,walls):
+        if self.show_blast:
+            self.blast_timer -= dt
+
+            if self.blast_timer <= 0:
+                self.show_blast = False
+                self.dying = True
+                self.current_animation = None
+
+            else:
+                return
+
         if self.dead:
             self.respawn()
             return
@@ -497,6 +511,15 @@ class Player(pygame.sprite.Sprite):
 
         self.draw_rect = self.image.get_rect(midbottom=self.rect.midbottom)
 
+
+    def bullet_hit(self):
+        if self.dying or self.dead or self.show_blast:
+            return
+
+        self.show_blast = True
+        self.blast_timer = self.blast_duration
+        self.blast_position = pygame.Vector2(self.rect.center)
+
 async def main():
     show_debug = 1
     font = pygame.font.Font(None, 64)
@@ -509,6 +532,10 @@ async def main():
     shoot_timer = 0
     shoot_delay = 1.5 #seconds
     game_state = "instructions"
+    level_elapsed = 0.0
+    level_times = []
+
+    timer_font = pygame.font.Font(None, 42)
 
     walls,spawn,key,door,spikes,turrets = load_level(levels[current_level])
 
@@ -519,6 +546,10 @@ async def main():
         nonlocal current_level
         nonlocal walls,spawn,key,door,spikes,turrets
         nonlocal has_key,game_won
+        nonlocal level_elapsed
+
+        level_times.append(level_elapsed)
+        level_elapsed = 0.0
 
         current_level += 1
 
@@ -535,7 +566,7 @@ async def main():
 
         has_key = False
         bullets.clear()
-
+    a = 0
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -574,12 +605,17 @@ async def main():
                         player.current_animation = None
 
         dt = clock.tick(60) / 1000
+        
         screen.fill("black")
 
         if game_state == "instructions":
             show_instructions(screen)
 
-        elif game_state == "playing":    
+        elif game_state == "playing":  
+
+            if not game_won:
+                level_elapsed += dt
+
             collision_walls = walls.copy()
 
             if not has_key:
@@ -596,17 +632,16 @@ async def main():
                         break
 
             # Key
-            if not has_key:
-                if player.rect.colliderect(key):
-                    has_key = True
-                    print("Key Collected!")
+            if not has_key and player.rect.colliderect(key):
+                has_key = True
+                # print("Key Collected!")
 
             # Door
-            if not game_won:
-                if player.rect.colliderect(door):
-                    if has_key:
-                        if player.rect.colliderect(door) and has_key:
-                            next_level()
+            if not game_won and has_key and player.rect.colliderect(door):
+                next_level()
+
+            # print(has_key)
+
             # Draw tile
             if not game_won:
                 for row_index,row in enumerate(levels[current_level]):
@@ -644,7 +679,10 @@ async def main():
 
             # Draw spikes
             for spike in spikes:
-                pygame.draw.rect(screen, "red", spike)
+                screen.blit(
+                    spikes_image, 
+                    spikes_image.get_rect(midbottom=spike.midbottom)
+                )
 
             # Draw turret
             for turret in turrets:
@@ -656,6 +694,10 @@ async def main():
             # Draw player
             for sprite in all_sprites:
                 screen.blit(sprite.image, sprite.draw_rect)
+
+            # Draw collision blast
+            if player.show_blast:
+                screen.blit(blast_image, blast_image.get_rect(center=player.blast_position))
             
             #  Draw Hit_box
             if show_debug == -1:
@@ -695,9 +737,7 @@ async def main():
                 if bullet_rect.colliderect(player.rect):
                     bullets.remove(bullet)
 
-                    if not player.dying and not player.dead:
-                        player.dying = True
-                        player.current_animation = None
+                    player.bullet_hit()
 
                     continue
 
@@ -714,7 +754,9 @@ async def main():
 
             # Display text
             if game_won:
-                message = font.render("Level Complete!!!", True, "white")
+                bullets.clear()
+                
+                message = font.render("Congrats! You completed all levels.", True, "white")
                 screen.blit(
                     message,
                     message.get_rect(center = (width // 2, height // 2))
