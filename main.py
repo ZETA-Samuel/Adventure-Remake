@@ -12,7 +12,7 @@ def asset_path(*parts):
 pygame.init()
 clock = pygame.time.Clock()
 
-screen = pygame.display.set_mode((1280,832)) # display surface
+screen = pygame.display.set_mode((800,600)) # display surface
 width, height = screen.get_size()
 pygame.display.set_caption("Adventure")
 
