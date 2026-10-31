@@ -1,4 +1,12 @@
+import os
 import pygame, asyncio
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def asset_path(*parts):
+    return os.path.join(BASE_DIR, *parts)
+
 
 # initalization
 pygame.init()
@@ -14,9 +22,9 @@ TILE_SIZE = 32
 # loading texture
 def load_tile_image(path, color):
     try:
-        image = pygame.image.load(path).convert_alpha()
+        image = pygame.image.load(asset_path(path)).convert_alpha()
         return pygame.transform.scale(image,(TILE_SIZE,TILE_SIZE))
-    except (pygame.error, FileNotFoundError):
+    except (pygame.error, FileNotFoundError, OSError):
         image = pygame.Surface((TILE_SIZE,TILE_SIZE))
         image.fill(color)
         return image
@@ -27,12 +35,12 @@ tile_images = {
     #"C": load_tile_image("tiles/crate.png", (150,95,45)),
 }
 
-key_image = pygame.image.load("items/key.png").convert_alpha()
-door_image = pygame.image.load("items/door.png").convert_alpha()
-door_image_open = pygame.image.load("items/door_open.png").convert_alpha()
-turret_image = pygame.image.load("items/turret.png").convert_alpha()
-spikes_image = pygame.image.load("items/spikes.png").convert_alpha()
-blast_image = pygame.image.load("items/explosion.png").convert_alpha()
+key_image = pygame.image.load(asset_path("items", "key.png")).convert_alpha()
+door_image = pygame.image.load(asset_path("items", "door.png")).convert_alpha()
+door_image_open = pygame.image.load(asset_path("items", "door_open.png")).convert_alpha()
+turret_image = pygame.image.load(asset_path("items", "turret.png")).convert_alpha()
+spikes_image = pygame.image.load(asset_path("items", "spikes.png")).convert_alpha()
+blast_image = pygame.image.load(asset_path("items", "explosion.png")).convert_alpha()
 
 key_image = pygame.transform.scale(key_image, (36, 18))
 door_image = pygame.transform.scale(door_image, (32, 48))
@@ -53,7 +61,7 @@ blast_image = pygame.transform.scale(blast_image, (80, 80))
 # T = turret
 # B = bullet
 levels = [
-        
+         
     [
     "........................................",
     "........................................",
@@ -246,7 +254,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self,pos):
         super().__init__()
 
-        self.sprite_sheet = pygame.image.load('animation/hero.png').convert_alpha()
+        self.sprite_sheet = pygame.image.load(asset_path("animation", "hero.png")).convert_alpha()
         self.speed = 200
         self.velocity_y = 0
         self.gravity = 1200
